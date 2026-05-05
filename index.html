@@ -51,7 +51,8 @@ async function runAudit() {
       body: JSON.stringify({ url, email })
     });
     const data = await res.json();
-    const text = data.content?.[0]?.text || '';
+    console.log('API response:', JSON.stringify(data));
+const text = data.content?.[0]?.text || '';
     const s = text.indexOf('{'), e = text.lastIndexOf('}');
     const audit = JSON.parse(text.slice(s, e+1));
     showResult(audit, url, email);
