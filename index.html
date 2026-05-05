@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: sans-serif; padding: 2rem; background: #000; color: #fff; }
+  input { width: 100%; padding: 10px; margin-bottom: 12px; border: 1px solid #333; border-radius: 8px; font-size: 14px; background: #111; color: #fff; }
+  input::placeholder { color: #666; }
+  button { width: 100%; padding: 12px; background: #fff; color: #000; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: 500; }
+  button:disabled { opacity: 0.4; }
+  #result { margin-top: 1.5rem; display: none; }
+  .score { font-size: 48px; font-weight: bold; text-align: center; margin: 1rem 0; }
+  .label { text-align: center; font-size: 18px; margin-bottom: 1rem; }
+  .section { margin-top: 1rem; padding: 1rem; border: 1px solid #222; border-radius: 8px; }
+  .section h3 { font-size: 11px; text-transform: uppercase; color: #666; margin-bottom: 8px; letter-spacing: .06em; }
+  .eeat-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1a1a1a; font-size: 14px; color: #ccc; }
+  .finding { padding: 6px 0; border-bottom: 1px solid #1a1a1a; font-size: 13px; color: #ccc; }
+  .finding span { font-weight: 500; color: #fff; }
+  .cta { margin-top: 1rem; padding: 1.5rem; background: #111; border: 1px solid #333; border-radius: 8px; text-align: center; }
+  .cta h3 { font-size: 16px; margin-bottom: 8px; color: #fff; }
+  .cta p { font-size: 13px; color: #999; margin-bottom: 1rem; }
+  .error { color: #ff4444; font-size: 13px; margin-top: 8px; }
+  .loading { text-align: center; padding: 2rem; color: #666; }
+</style>
+</head>
+<body>
+<h2 style="margin-bottom:1.5rem;font-size:20px">GEO Visibility Audit</h2>
+<input type="text" id="url" placeholder="Website URL (https://...)" />
+<input type="email" id="email" placeholder="Your email" />
+<button id="btn" onclick="runAudit()">Analyze →</button>
+<div class="error" id="error"></div>
+<div id="loading" class="loading" style="display:none">Analyzing your digital presence...</div>
+<div id="result"></div>
+<script>
+async function runAudit() {
+  const url = document.getElementById('url').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const btn = document.getElementById('btn');
+  const error = document.getElementById('error');
+  const loading = document.getElementById('loading');
+  error.textContent = '';
+  if (!url || !email) { error.textContent = 'Please fill in all fields.'; return; }
+  btn.disabled = true;
+  loading.style.display = 'block';
+  document.getElementById('result').style.display = 'none';
+  try {
+    const res = await fetch('/api/audit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url, email })
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || '';
+    const s = text.indexOf('{'), e = text.lastIndexOf('}');
+    const audit = JSON.parse(text.slice(s, e+1));
+    showResult(audit, url, email);
+  } catch(err) {
+    error.textContent = 'Analysis failed. Please try again.';
+    btn.disabled = false;
+    loading.style.display = 'none';
+  }
+}
+function showResult(a, url, email) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('btn').disabled = false;
+  const colors = {low:'#e74c3c',moderate:'#f39c12',good:'#2ecc71',strong:'#2ecc71'};
+  const color = colors[a.score_label.split(' ')[0].toLowerCase()] || '#f39c12';
+  const eeatHTML = Object.entries(a.eeat).map(([k,v]) =>
+    `<div class="eeat-item"><span style="text-transform:capitalize">${k}</span><strong style="color:#fff">${v.score}%</strong></div>`
+  ).join('');
+  const findingsHTML = a.findings.map(f =>
+    `<div class="finding"><span>${f.title}</span><br>${f.desc}</div>`
+  ).join('');
+  document.getElementById('result').innerHTML = `
+    <div class="score" style="color:${color}">${a.overall_score}</div>
+    <div class="label">${a.score_label}</div>
+    <p style="text-align:center;font-size:13px;color:#999;margin-bottom:1rem">${a.score_description}</p>
+    <div class="section"><h3>E-E-A-T Score</h3>${eeatHTML}</div>
+    <div class="section"><h3>Key Findings</h3>${findingsHTML}</div>
+    <div class="cta">
+      <h3>${a.recommended_package}</h3>
+      <p>${a.package_description}</p>
+      <button onclick="window.location.href='mailto:nilsu@noscreativespace.com?subject=GEO Audit&body=Website: ${encodeURIComponent(url)}'">Get in touch with NOS →</button>
+    </div>
+  `;
+  document.getElementById('result').style.display = 'block';
+}
+</script>
+</body>
+</html>
